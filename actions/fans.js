@@ -1,93 +1,71 @@
 var gpio = require('rpi-gpio');
-var Q= require("q");
-var pins = [ 40,38,36,37,35,33];
+var async = require("async");
+var q = require("q");
 
-var fans = {
-  1: [pins[0],pins[1]],
-  2: [pins[2],pins[3]],
-  3: [pins[4],pins[5]],
+function Fans(fans){
+  Fans._fanMap = fans;
+  Fans._pins = getFanPins( Fans._fanMap );
+  console.log( Fans._pins );
+  async.eachSeries(Fans._pins, setupPin, setupError);
 }
 
-var Fans = function(){
-  var setups=[];
-  //setup al pins
-  pins.forEach( function(pin){
-    setups.push( setup(pin) );
-  });
-
-  Q.all( setups )
+Fans.change = function( fan, speed ){
+  var pins = Fans._fanMap[fan];
+  writePinPromise(pins[0], false)
+  .then( function(){ return writePinPromise(pins[1], false) } )
   .then( function(){
-    var offs = [];
-    pins.forEach( function(pin){
-      offs.push( off(pin) );
-    })
-    return Q.all( offs );
-  })
-  .done();
-}
-
-Fans.off = function(fanNumber){
-  //turn off both pins
-  var fan = fans[fanNumber];
-  return off( fan[0] )
-  .then( function(){
-    return off(fan[1]);
-  })
-
-}
-
-Fans.low = function( fanNumber ){
-  //turn off both pins
-  //turn on position 1
-  var fan = fans[fanNumber];
-
-  Fans.off( fanNumber )
-  .then( function(){
-    return on( fan[1] );
+    var pin = getPinFromSpeed( speed, pins );
+    if( pin ) return writePinPromise(pin, true );
+    else return true;
   })
 }
 
-Fans.high = function(fanNumber){
- //turn off both pins
- //turn on position 0
- var fan = fans[fanNumber];
-
- Fans.off( fanNumber )
- .then( function(){
-   return on( fan[0] );
- })
+function getPinFromSpeed(speed,pins){
+  console.log(speed);
+  if( speed == "SLOW" ) return pins[1];
+  else if( speed == "FAST" ) return pins[0];
+  else return null;
 }
 
+function writePinPromise( pin, status ){
+  console.log("setting " , pin, status);
 
-function off(pin){
-  var defer = Q.defer()
-  gpio.write(pin, true, function(err) {
-    if (err) defer.reject(err);
-    else defer.resolve();
+  var defer = q.defer();
+  gpio.write(pin, status, function(err) {
+      if (err) defer.reject(err)
+      else{
+        setTimeout( function(){ defer.resolve(); }, 500);
+      }
   });
-
   return defer.promise;
 }
 
-function on(pin){
-  var defer = Q.defer()
-  gpio.write(pin, false, function(err) {
-    if (err) defer.reject(err);
-    else defer.resolve();
-  });
+function setupPin(pin, callback){
+  gpio.setup(pin, gpio.DIR_OUT, write);
+  function write(setupError) {
+    if( setupError ) return callback(setupError);
+      console.log("setting " , pin, false);
 
-  return defer.promise;
+      gpio.write(pin, false, function(err) {
+          if (err) callback(err);
+          else callback( null );
+      });
+  }
 }
 
-function setup(pin){
-  var defer = Q.defer()
-
-  gpio.setup(pin, gpio.DIR_OUT, function(err){
-    if (err) defer.reject(err);
-    else defer.resolve();
-  });
-
-  return defer.promise;
+function setupError(err){
+  if(err) console.log(err);
+  else console.log("Fans Setup Complete");
 }
 
+function getFanPins(fanMap){
+  var keys = Object.keys(fanMap);
+  var pins = [];
+  keys.forEach( function(key){
+    var arr = fanMap[key];
+    arr.forEach( function(pin){ pins.push(pin); } );
+  })
+  return pins;
+}
 
+module.exports = Fans;

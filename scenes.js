@@ -1,10 +1,13 @@
 var Lights = require("./actions/lights");
+var Fans = require("./actions/fans");
 
-function Scenes(lx,bulbs){
+function Scenes(lx,bulbs, fans){
   var lights = new Lights(lx);
+  new Fans(fans);
   Scenes._lx = lx;
   Scenes._bulbs = bulbs;
   Scenes._bulbLocations = {};
+  Scenes._fans = fans;
   Object.keys(bulbs).forEach( function(key){
     var location = bulbs[key];
     Scenes._bulbLocations[location] = key;
@@ -22,22 +25,30 @@ Scenes.on= function(){
 }
 
 Scenes.MainRoom_Lights_Off = function(){
-  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII","SalaII"]);
   Lights.off( lights);
+  Fans.change( "sala", "OFF");
 }
 
 Scenes.MainRoom_Lights_Low = function(){
+  var lights2 = makeBulbArray(["SalaII"]);
   var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
   Lights.on( lights, "lowWarm" );
+  Lights.on( lights2, "purple" );
+
+  Fans.change( "sala","SLOW" );
+
 }
 
 Scenes.MainRoom_Lights_Normal = function(){
-  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII","SalaII"]);
   Lights.on( lights, "whiteNormal" );
+
+  Fans.change( "sala","FAST" );
 }
 
 Scenes.MainRoom_Lights_High = function(){
-  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII","SalaII"]);
   Lights.on( lights, "highCold" );
 }
 

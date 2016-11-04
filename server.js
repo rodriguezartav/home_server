@@ -19,6 +19,7 @@ var lx = require('./lx');
 
 var Bulbs = {
   "d073d5120d25": "SalaI",
+  "d073d512daec": "SalaII",
   "d073d5108bc4": "CocinaI",
   "d073d510a48e": "CocinaII",
   "d073d5109b30": "CocinaIII",
@@ -28,7 +29,13 @@ var Bulbs = {
   "d073d513247e": "Cuarto_Tortuga",
 }
 
-var scenes = new Scenes(lx,Bulbs);
+var Fans = {
+  "sala": [35,36],
+  "lapas": [38,40],
+  "tortuga": [31,33]
+}
+
+var scenes = new Scenes(lx,Bulbs, Fans);
 
 
 router.post("/log", function(req,res){
