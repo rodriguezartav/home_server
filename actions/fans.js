@@ -11,11 +11,11 @@ function Fans(fans){
 
 Fans.change = function( fan, speed ){
   var pins = Fans._fanMap[fan];
-  writePinPromise(pins[0], false)
-  .then( function(){ return writePinPromise(pins[1], false) } )
+  writePinPromise(pins[0], true)
+  .then( function(){ return writePinPromise(pins[1], true) } )
   .then( function(){
     var pin = getPinFromSpeed( speed, pins );
-    if( pin ) return writePinPromise(pin, true );
+    if( pin ) return writePinPromise(pin, false );
     else return true;
   })
 }
@@ -44,9 +44,9 @@ function setupPin(pin, callback){
   gpio.setup(pin, gpio.DIR_OUT, write);
   function write(setupError) {
     if( setupError ) return callback(setupError);
-      console.log("setting " , pin, false);
+      console.log("setting " , pin, true);
 
-      gpio.write(pin, false, function(err) {
+      gpio.write(pin, true, function(err) {
           if (err) callback(err);
           else callback( null );
       });

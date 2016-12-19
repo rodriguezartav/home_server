@@ -37,7 +37,31 @@ Scenes.MainRoom_Lights_Low = function(){
   Lights.on( lights2, "purple" );
 
   Fans.change( "sala","SLOW" );
+}
 
+Scenes.MainRoom_Lights_Low_Fans_Fast = function(){
+  var lights2 = makeBulbArray(["SalaII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  Lights.on( lights, "lowWarm" );
+  Lights.on( lights2, "purple" );
+
+  Fans.change( "sala","FAST" );
+}
+
+Scenes.MainRoom_Lights_Fire_Fans_Fast = function(){
+  var lights2 = makeBulbArray(["SalaII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  Lights.on( lights, "lowFire" );
+
+  Fans.change( "sala","FAST" );
+}
+
+Scenes.MainRoom_Lights_Fire_Fans_Low = function(){
+  var lights2 = makeBulbArray(["SalaII"]);
+  var lights = makeBulbArray([ "SalaI", "CocinaI", "CocinaII", "CocinaIII"]);
+  Lights.on( lights, "lowFire" );
+
+  Fans.change( "sala","SLOW" );
 }
 
 Scenes.MainRoom_Lights_Normal = function(){
@@ -55,10 +79,13 @@ Scenes.MainRoom_Lights_High = function(){
 Scenes.Lapas_Lights_Off = function(){
   var lights = makeBulbArray([ "Cuarto_Lapas", "Bano_Lapas"]);
   Lights.off(lights);
+  Fans.change( "lapas","OFF" );
+
 }
 
 Scenes.Lapas_Lights_Low = function(){
   var lights = makeBulbArray([ "Cuarto_Lapas"]);
+  Fans.change( "lapas","FAST" );
   Lights.on( lights, "lowWarm" );
 }
 

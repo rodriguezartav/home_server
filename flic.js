@@ -15,15 +15,15 @@ var ButtonMap = {
 }
 
 var ConnectionMap = {
-  "VERDE_PRINCIPAL": {
+  "AZUL_PRINCIPAL": {
     "ButtonSingleClick": "MainRoom_Lights_Normal",
     "ButtonDoubleClick": "MainRoom_Lights_Off",
     "ButtonHold":"MainRoom_Lights_Low"
   },
-  "AZUL_PRINCIPAL": {
-    "ButtonSingleClick": "",
-    "ButtonDoubleClick": "",
-    "ButtonHold":""
+  "VERDE_PRINCIPAL": {
+    "ButtonSingleClick": "MainRoom_Martino",
+    "ButtonDoubleClick": "MainRoom_Martino",
+    "ButtonHold":"MainRoom_Martino"
   },
   "BLANCO_SECUNDARIO": {
     "ButtonSingleClick": "Lapas_Lights_High",
