@@ -1,55 +1,101 @@
 var LifxClient = require('node-lifx').Client;
-
-var BulbLocations = {}
+var Assets = require("./assets");
 
 function Lifx(Bulbs, Colors){
-  Lifx.Bulbs = Bulbs;
+  var _this = this;
   Lifx.Colors = Colors;
 
   Lifx.client = new LifxClient();
 
-  Lifx.client.on('light-new', function(light) {
-    console.log("Light:", Lifx.Bulbs[light.id], light.address, light.label || light.name, light.status);
+  Lifx.initTimeout;
+
+  Lifx.client.on('light-offline', function(lightBulb) {
+    _this.onLightOffline(lightBulb);
+  })
+
+  Lifx.client.on('light-new', function(lightBulb) {
+    _this.onLightNew(lightBulb);
   });
 
-  Lifx.client.init();
+  Lifx.client.on('light-online', function(lightBulb) {
+    _this.onLightNew(lightBulb);
+  })
 
-  Object.keys(Lifx.Bulbs).forEach( function(key){
-    var location = Lifx.Bulbs[key];
-    BulbLocations[location] = key;
-  });
+  setTimeout(function(){
+    Assets.instance.getByType('light')
+    .then( function(assets){
+      names = assets.map(function(asset){
+        return asset.name;
+      })
+      Lifx.off( names );
+    }).done();
+  },3000);
 
-
+  Lifx.client.init()
 }
 
-Lifx.on = function( namedLights, namedColor ){
-  var params = Lifx.Colors.default;
-  if( Lifx.Colors[namedColor] ) params = Lifx.Colors[namedColor];
-
-  var lights = Lifx.makeBulbArray(namedLights);
-
-  lights.forEach( function(lightId){
-    var bulb = Lifx.client.light(lightId);
-    if( bulb ) bulb.on();
-    if(bulb) bulb.color( params[0],params[1],params[2],params[3] );
+Lifx.prototype.onLightNew = function(lightBulb){
+  Assets.instance.getById(lightBulb.id)
+  .then( function(light){
+    if( !light ) return;
+    lightBulb.getState( function(err,state){
+      if(err) return;
+      light.status.on = state.power > 0;
+      light.status.color = state.color;
+      Assets.instance.save(light);
+    })
   })
+}
+
+Lifx.prototype.onLightOffline = function(lightBulb){
+  Assets.instance.getById(lightBulb.id)
+  .then( function(light){
+    light.status.initialized = false
+    light.status.on = false;
+    light.status.color = null;
+    Assets.instance.save(light);
+  })
+}
+
+Lifx.prototype.reset = function(){
+  Lifx.client.startDiscovery()
+}
+
+Lifx.on = function( namedLights, color ){
+  Assets.instance.getByIdFromNames(namedLights)
+  .then( function(lights){
+    lights.forEach( function(lightId){
+      var bulb = Lifx.client.light(lightId)
+      if(bulb){
+        bulb.on();
+        bulb.color( color[0], color[1], color[2], color[3]);
+        Assets.instance.getById( lightId )
+        .then( function(light){
+          light.status.on = true;
+          light.status.color = color;
+          Assets.instance.save(light);
+        })
+      }
+    })
+  }).done();
 }
 
 Lifx.off = function(namedLights){
-  var lights = Lifx.makeBulbArray(namedLights);
-
-  lights.forEach( function(lightId){
-    var bulb = Lifx.client.light(lightId);
-    if(bulb) bulb.off();
-  })
-}
-
-Lifx.makeBulbArray = function( locations ){
-  var keys = [];
-  locations.forEach( function(location){
-    keys.push( BulbLocations[location] );
-  });
-  return keys;
+  Assets.instance.getByIdFromNames(namedLights)
+  .then( function(lights){
+    lights.forEach( function(lightId){
+      var bulb = Lifx.client.light(lightId);
+      Assets.instance.getById( lightId )
+      .then( function(light){
+        if(bulb){
+          bulb.off();
+          light.status.on = false;
+          light.status.color = null;
+          Assets.instance.save(light);
+        }
+      });
+    })
+  }).done();
 }
 
 module.exports = Lifx;

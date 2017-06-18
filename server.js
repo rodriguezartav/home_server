@@ -2,7 +2,8 @@ var express = require('express');
 var app = express();
 var Log = require("./log");
 var cors = require('cors')
-
+var Assets = require("./helpers/assets");
+var QSQL = require('q-sqlite3');
 var q = require("q");
 var GPIO = require('./helpers/gpio');
 var Lifx = require('./helpers/lifx');
@@ -19,7 +20,7 @@ var Colors = {
  "default": [50, 60, 100,4000],
  "low": [50, 60, 15,3000],
  "mid": [50, 60, 50,3000],
- "high": [50, 60, 100,7000],
+ "high": [50, 60, 100,4000],
  "whiteNormal": [50, 60, 100,6000],
  "highCold": [50, 60, 100,7000],
  "purple": [200,80,100,7000],
@@ -48,19 +49,37 @@ var Pins = {
   "cargador": [3]
 }
 
+setInterval( function(){
+  toggleCharger()
+}, 10800 * 1000 );
 
-var Status = {};
-var lifx = new Lifx(Bulbs, Colors);
-var gpio = new GPIO(Pins);
+var chargerIsOn = false;
+function toggleCharger(){
+  GPIO.write( 3, chargerIsOn);
+  if( chargerIsOn ) chargerIsOn = false;
+  else chargerIsOn = true;
+}
+
+var lifx;
+var gpio;
+
+QSQL.createDatabase('./db/db').done(function(db) {
+  new Assets(db)
+  lifx = new Lifx(Bulbs, Colors);
+  gpio = new GPIO(Pins);
+  //toggleCharger();
+})
 
 router.get('/data', function(req,res){
-  res.send({ bulbs: Bulbs, pins: Pins, color: Colors } );
+  Assets.instance.getAll()
+  .then( function(assets){
+    res.send({ assets: assets } );
+  }).done();
 })
 
 router.get("/pin", function(req,res){
-  GPIO.write( Pins[req.query.name][0], req.query.status == "true")
+  GPIO.write( req.query.name, req.query.status == "true")
   .then( function(){
-    Status[ req.query.name ] = {type: "pin", value: req.query.status };
     res.send({success: true});
   }).fail( function(err){
     res.send({success: false, error: err});
@@ -70,16 +89,19 @@ router.get("/pin", function(req,res){
 router.get("/fan",function(req,res){
   GPIO.writeForFan(req.query.name,req.query.speed)
   .then( function(){
-    Status[req.query.name] = {type: "fan", value: req.query.speed};
     res.send({success: true});
   }).fail( function(err){
     res.send({success: false, error: err.toString() });
   }).done()
 })
 
-router.get("/light",function(req,res){
-  var params = req.query;
-  Status[params.name] = { type:"light", value: params.action, details: params.color, name: params.name }
+router.get("/light/reset",function(req,res){
+  lifx.reset();
+  res.send({success: true});
+})
+
+router.post("/light",function(req,res){
+  var params = req.body;
   Lifx[params.action]([params.name], params.color);
   res.send({success: true});
 })
@@ -90,25 +112,15 @@ router.post("/bulk", function(req,res){
 
   if( lights){
     lights.forEach( function(light){
-      light.names.forEach( function(name){
-        Status[name] = { type:"light", value: light.action, details: light.color, name: name }
-      })
       Lifx[light.action](light.names, light.color);
     });
   }
 
   if(fan){
-    Status[fan.name] = {type: "fan", value: fan.speed, name: fan.name};
-
     GPIO.writeForFan(fan.name, fan.speed);
   }
 
-  setTimeout( function(){ res.send(200); },1000 );
-
-})
-
-router.get("/status", function(req,res){
-  res.send(Status);
+  setTimeout( function(){ res.send({success: true}); }, 1000 );
 })
 
 router.post("/log", function(req,res){

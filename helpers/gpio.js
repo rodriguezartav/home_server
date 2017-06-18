@@ -1,44 +1,77 @@
 var rpiGPIO = require('rpi-gpio');
 var async = require("async");
 var q = require("q");
+var Assets = require("./assets");
 
-var Pins;
+var PinsToAssetName={};
 
-var GPIO = function(pins){
-  var individualPins = GPIO._mapToArrayPins(pins);
-  async.eachSeries(individualPins, GPIO.setupPin, GPIO._setupError);
-  Pins = pins;
+var GPIO = function(){
+  var assets = [];
+  Assets.instance.getByTypes(['fan','switch'])
+  .then( function(rows){
+    assets = assets.concat( rows );
+    var individualPins = [];
+    assets.forEach( function(asset){
+      asset.id.split(",").forEach( function(pin){
+        individualPins.push(pin);
+        PinsToAssetName[pin] = asset.name;
+      })
+    })
+    async.eachSeries(individualPins, GPIO.setupPin, GPIO._setupComplete);
+  })
+}
+
+GPIO.prototype.handleChange = function(asset, originalAsset){
+  if( asset.type == "fan" ) GPIO.writeForFan( asset.name, asset.status.speed );
+  else if( asset.type == "pin" ) GPIO.write( asset.id, asset.status.on );
 }
 
 GPIO.writeForFan = function( fan, speed ){
-  var dualPins = Pins[fan];
-  return GPIO.write(dualPins[0], true)
-  .then( function(){
-    return GPIO.write(dualPins[1], true)
-  })
-  .then( function(){
-    var pin = GPIO._getPinFromSpeed( speed, dualPins );
-    if( pin ) return GPIO.write(pin, false );
-    else return true;
+  return Assets.instance.getByName(fan)
+  .then( function(asset){
+    var dualPins = asset.id.split(",");
+    return GPIO.write(dualPins[0], true)
+    .then( function(){
+      return GPIO.write(dualPins[1], true)
+    })
+    .then( function(){
+      var pin = GPIO._getPinFromSpeed( speed, dualPins );
+      if( pin ){
+        asset.status.on = true;
+        asset.status.speed = speed;
+        Assets.instance.save(asset);
+        return GPIO.write(pin, false );
+      }
+      else{
+        asset.status.on = false;
+        asset.status.speed = 0;
+        Assets.instance.save(asset);
+        return true;
+      }
+    })
   })
 }
 
-
 GPIO.write = function( pin, status ){
-  console.log("setting " , pin, status);
-  var defer = q.defer();
-  rpiGPIO.write(pin, status, function(err) {
-    if (err) defer.reject(err)
-    else setTimeout( function(){ defer.resolve(); }, 500);
-  });
-  return defer.promise;
+  var name = PinsToAssetName[pin];
+  console.log(PinsToAssetName, name)
+  return Assets.instance.getByName(name)
+  .then( function(asset){
+    rpiGPIO.write( pin, status, function(err) {
+      if (err) return defer.reject(err)
+      asset.status.on = status == false;
+      asset.status.initialized = true;
+      Assets.instance.save(asset);
+      return asset;
+    });
+  })
+
 }
 
 GPIO.setupPin = function(pin, callback){
   rpiGPIO.setup(pin, rpiGPIO.DIR_OUT, write);
   function write(setupError) {
     if( setupError ) return callback(setupError);
-    console.log("setting " , pin, true);
     rpiGPIO.write(pin, true, function(err) {
       if (err) callback(err);
       else callback( null );
@@ -46,9 +79,17 @@ GPIO.setupPin = function(pin, callback){
   }
 }
 
-GPIO._setupError = function(err){
+GPIO._setupComplete = function(err){
   if(err) console.log(err);
-  else console.log("Fans Setup Complete");
+  else{
+    Assets.instance.getByTypes(['fan','switch'])
+    .then( function(assets){
+      assets.forEach( function(asset){
+        asset.status.initialized = true;
+        Assets.instance.save(asset);
+      })
+    })
+  }
 }
 
 GPIO._getPinFromSpeed = function(speed, pins){
